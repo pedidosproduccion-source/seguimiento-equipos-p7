@@ -1,0 +1,1 @@
+web: streamlit run Seguimineto_en_python_streamlit.py
