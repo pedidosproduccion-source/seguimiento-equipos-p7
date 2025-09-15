@@ -4,12 +4,17 @@ import json
 import os
 from datetime import datetime
 import xlsxwriter
+import uuid
 
 # --- Configuración de la aplicación y archivos de datos ---
 st.set_page_config(layout="wide", page_title="Seguimiento de Equipos")
 
 DATABASE_FILE = "avance_equipos.json"
 TERMINADOS_FILE = "equipos_terminados.json"
+COMPONENTE_LISTA = [
+    "Sistema Eléctrico", "Sistema Neumático", "Sistema de Frenos",
+    "Acabados", "Emblemas", "Hidráulico", "Accesorios"
+]
 
 def cargar_datos(archivo):
     """Carga los datos de un archivo JSON."""
@@ -34,10 +39,10 @@ def calcular_porcentaje_total(equipo):
 def get_color_porcentaje(porcentaje):
     """Devuelve un color basado en el porcentaje."""
     if porcentaje == 100:
-        return "#22C55E"  # Verde
+        return "#22C55E"
     if porcentaje >= 50:
-        return "#F97316"  # Naranja
-    return "#EF4444"  # Rojo
+        return "#F97316"
+    return "#EF4444"
 
 # --- Inicialización del estado de la sesión ---
 if 'equipos' not in st.session_state:
@@ -50,16 +55,18 @@ if 'mostrar_terminados' not in st.session_state:
     st.session_state.mostrar_terminados = False
 
 # --- Lógica de la interfaz de usuario ---
-st.title("🚧 Seguimiento y Avance de Equipos")
+try:
+    st.image("logo.png", width=150)
+except FileNotFoundError:
+    pass
 
-# Mensaje de bienvenida y de ayuda
+st.title("🚧 Seguimiento y Avance de Equipos")
 st.info("¡Bienvenido! Usa la barra lateral para registrar o editar equipos. En la sección principal verás el progreso de todos tus proyectos.")
 
-# --- Sidebar para el formulario y opciones ---
+# Sidebar para el formulario y opciones
 with st.sidebar:
     st.header("📝 Opciones")
 
-    # Botón para cambiar entre ver equipos activos y terminados
     if st.session_state.mostrar_terminados:
         if st.button("⏪ Volver a Equipos Activos"):
             st.session_state.mostrar_terminados = False
@@ -83,12 +90,8 @@ with st.sidebar:
         )
         st.markdown("### Porcentaje de Avance:")
         componentes_sliders = {}
-        componentes_lista = [
-            "Sistema Eléctrico", "Sistema Neumático", "Sistema de Frenos",
-            "Acabados", "Emblemas", "Hidráulico", "Accesorios"
-        ]
 
-        for comp in componentes_lista:
+        for comp in COMPONENTE_LISTA:
             valor_inicial = equipo_a_editar['componentes'].get(comp, 0) if equipo_a_editar and 'componentes' in equipo_a_editar else 0
             componentes_sliders[comp] = st.slider(
                 comp, 0, 100,
@@ -118,7 +121,7 @@ with st.sidebar:
                     st.session_state.equipos[st.session_state.editando].update(data)
                     st.success("✅ Equipo actualizado con éxito.")
                 else:
-                    equipo_id = str(len(st.session_state.equipos) + 1)
+                    equipo_id = str(uuid.uuid4())
                     data['id'] = equipo_id
                     st.session_state.equipos[equipo_id] = data
                     st.success("✅ Equipo registrado con éxito.")
@@ -127,7 +130,6 @@ with st.sidebar:
                 st.session_state.editando = None
                 st.rerun()
 
-    # Botón para cancelar la edición
     if st.session_state.editando:
         if st.button("🚫 Cancelar Edición"):
             st.session_state.editando = None
@@ -135,7 +137,6 @@ with st.sidebar:
 
     st.markdown("---")
     st.header("Exportar Datos")
-    # Lógica para exportar a Excel
     if st.button("📊 Exportar a Excel"):
         data_para_df = []
         for equipo_data in st.session_state.equipos.values():
@@ -171,10 +172,25 @@ if st.session_state.mostrar_terminados:
     equipos_a_mostrar = st.session_state.terminados
     if not equipos_a_mostrar:
         st.info("Aún no hay equipos en el historial de terminados.")
+    else:
+        for equipo_id, equipo_data in equipos_a_mostrar.items():
+             with st.expander(f"**{equipo_data['nombre']}** - Fecha de finalización: {equipo_data.get('ultima_actualizacion', 'N/A')}"):
+                st.caption(f"**Comentarios:** {equipo_data.get('comentarios', '')}")
+                if st.button("⏪ Devolver a Proceso", key=f"revert_{equipo_id}"):
+                    st.session_state.terminados.pop(equipo_id)
+                    st.session_state.equipos[equipo_id] = equipo_data
+                    guardar_datos(st.session_state.equipos, DATABASE_FILE)
+                    guardar_datos(st.session_state.terminados, TERMINADOS_FILE)
+                    st.success("El equipo se ha devuelto a la lista de 'Equipos en Proceso'.")
+                    st.rerun()
+                if st.button("🗑️ Eliminar permanentemente", key=f"delete_term_{equipo_id}"):
+                    st.session_state.terminados.pop(equipo_id)
+                    guardar_datos(st.session_state.terminados, TERMINADOS_FILE)
+                    st.success("El equipo se ha eliminado del historial.")
+                    st.rerun()
+
 else:
     st.header("📋 Equipos en Proceso")
-    
-    # Campo de búsqueda
     filtro_nombre = st.text_input("🔍 Buscar equipo por nombre")
     
     equipos_a_mostrar = st.session_state.equipos
@@ -187,21 +203,17 @@ else:
     if not equipos_a_mostrar:
         st.info("No se encontraron equipos o aún no hay equipos registrados. Usa el formulario de la barra lateral.")
     else:
-        # Gráfica del avance total
         df_equipos = pd.DataFrame(list(equipos_a_mostrar.values()))
         if not df_equipos.empty:
             df_equipos['Porcentaje Total'] = df_equipos.apply(calcular_porcentaje_total, axis=1)
             st.subheader("Avance General de Proyectos")
             st.bar_chart(df_equipos.set_index('nombre')[['Porcentaje Total']])
 
-        # --- Visualización de la lista de equipos con expanders ---
         for equipo_id, equipo_data in equipos_a_mostrar.items():
             total_porcentaje = calcular_porcentaje_total(equipo_data)
-            
             with st.expander(f"**{equipo_data['nombre']}** - Avance: **{total_porcentaje}%**"):
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    # Barras de progreso por componente
                     for comp, porc in equipo_data.get('componentes', {}).items():
                         color_barra_comp = get_color_porcentaje(porc)
                         st.markdown(f"""
@@ -213,32 +225,24 @@ else:
                             <span style="font-size: 12px; font-weight: bold; margin-left: 5px;">{porc}%</span>
                         </div>
                         """, unsafe_allow_html=True)
-                    
                     st.markdown("---")
-                    
                     if equipo_data.get('comentarios'):
                         st.caption(f"**Comentarios:** {equipo_data['comentarios']}")
                     st.caption(f"*Última actualización: {equipo_data.get('ultima_actualizacion', 'N/A')}*")
-                
                 with col2:
-                    # Botones de acción
                     if st.button("✏️ Editar", key=f"edit_{equipo_id}"):
                         st.session_state.editando = equipo_id
                         st.rerun()
-                    
                     if st.button("🗑️ Eliminar", key=f"delete_{equipo_id}"):
                         if st.session_state.editando == equipo_id:
-                            st.session_state.editando = None  # Cierra el formulario si se elimina el equipo que se estaba editando
+                            st.session_state.editando = None
                         del st.session_state.equipos[equipo_id]
                         guardar_datos(st.session_state.equipos, DATABASE_FILE)
                         st.success("❌ Equipo eliminado con éxito.")
                         st.rerun()
-                    
                     if st.button("✅ Terminado", key=f"done_{equipo_id}"):
                         if st.session_state.editando == equipo_id:
                             st.session_state.editando = None
-                        
-                        # Mover el equipo al archivo de terminados
                         equipo_a_terminar = st.session_state.equipos.pop(equipo_id)
                         st.session_state.terminados[equipo_id] = equipo_a_terminar
                         guardar_datos(st.session_state.equipos, DATABASE_FILE)
