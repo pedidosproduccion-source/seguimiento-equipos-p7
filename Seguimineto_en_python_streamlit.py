@@ -60,24 +60,24 @@ try:
 except FileNotFoundError:
     pass
 
-st.title("🚧 Seguimiento y Avance de Equipos")
+st.title("Seguimiento y Avance de Equipos")
 st.info("¡Bienvenido! Usa la barra lateral para registrar o editar equipos. En la sección principal verás el progreso de todos tus proyectos.")
 
 # Sidebar para el formulario y opciones
 with st.sidebar:
-    st.header("📝 Opciones")
+    st.header("Opciones")
 
     if st.session_state.mostrar_terminados:
-        if st.button("⏪ Volver a Equipos Activos"):
+        if st.button("Volver a Equipos Activos"):
             st.session_state.mostrar_terminados = False
             st.rerun()
     else:
-        if st.button("📦 Ver Historial de Terminados"):
+        if st.button("Ver Historial de Terminados"):
             st.session_state.mostrar_terminados = True
             st.rerun()
 
     st.markdown("---")
-    st.header("📝 Registrar/Editar Equipo")
+    st.header("Registrar/Editar Equipo")
 
     equipo_a_editar = None
     if st.session_state.editando:
@@ -119,25 +119,25 @@ with st.sidebar:
                 }
                 if st.session_state.editando:
                     st.session_state.equipos[st.session_state.editando].update(data)
-                    st.success("✅ Equipo actualizado con éxito.")
+                    st.success("Equipo actualizado con éxito.")
                 else:
                     equipo_id = str(uuid.uuid4())
                     data['id'] = equipo_id
                     st.session_state.equipos[equipo_id] = data
-                    st.success("✅ Equipo registrado con éxito.")
+                    st.success("Equipo registrado con éxito.")
 
                 guardar_datos(st.session_state.equipos, DATABASE_FILE)
                 st.session_state.editando = None
                 st.rerun()
 
     if st.session_state.editando:
-        if st.button("🚫 Cancelar Edición"):
+        if st.button("Cancelar Edición"):
             st.session_state.editando = None
             st.rerun()
 
     st.markdown("---")
     st.header("Exportar Datos")
-    if st.button("📊 Exportar a Excel"):
+    if st.button("Exportar a Excel"):
         data_para_df = []
         for equipo_data in st.session_state.equipos.values():
             fila = {
@@ -168,7 +168,7 @@ with st.sidebar:
 
 # --- Vista principal ---
 if st.session_state.mostrar_terminados:
-    st.header("📦 Historial de Equipos Terminados")
+    st.header("Historial de Equipos Terminados")
     equipos_a_mostrar = st.session_state.terminados
     if not equipos_a_mostrar:
         st.info("Aún no hay equipos en el historial de terminados.")
@@ -176,7 +176,7 @@ if st.session_state.mostrar_terminados:
         for equipo_id, equipo_data in equipos_a_mostrar.items():
              with st.expander(f"**{equipo_data['nombre']}** - Fecha de finalización: {equipo_data.get('ultima_actualizacion', 'N/A')}"):
                 st.caption(f"**Comentarios:** {equipo_data.get('comentarios', '')}")
-                if st.button("⏪ Devolver a Proceso", key=f"revert_{equipo_id}"):
+                if st.button("Devolver a Proceso", key=f"revert_{equipo_id}"):
                     st.session_state.terminados.pop(equipo_id)
                     st.session_state.equipos[equipo_id] = equipo_data
                     guardar_datos(st.session_state.equipos, DATABASE_FILE)
@@ -190,8 +190,8 @@ if st.session_state.mostrar_terminados:
                     st.rerun()
 
 else:
-    st.header("📋 Equipos en Proceso")
-    filtro_nombre = st.text_input("🔍 Buscar equipo por nombre")
+    st.header("Equipos en Proceso")
+    filtro_nombre = st.text_input("Buscar equipo por nombre")
     
     equipos_a_mostrar = st.session_state.equipos
     if filtro_nombre:
@@ -230,22 +230,22 @@ else:
                         st.caption(f"**Comentarios:** {equipo_data['comentarios']}")
                     st.caption(f"*Última actualización: {equipo_data.get('ultima_actualizacion', 'N/A')}*")
                 with col2:
-                    if st.button("✏️ Editar", key=f"edit_{equipo_id}"):
+                    if st.button("Editar", key=f"edit_{equipo_id}"):
                         st.session_state.editando = equipo_id
                         st.rerun()
-                    if st.button("🗑️ Eliminar", key=f"delete_{equipo_id}"):
+                    if st.button("Eliminar", key=f"delete_{equipo_id}"):
                         if st.session_state.editando == equipo_id:
                             st.session_state.editando = None
                         del st.session_state.equipos[equipo_id]
                         guardar_datos(st.session_state.equipos, DATABASE_FILE)
-                        st.success("❌ Equipo eliminado con éxito.")
+                        st.success("Equipo eliminado con éxito.")
                         st.rerun()
-                    if st.button("✅ Terminado", key=f"done_{equipo_id}"):
+                    if st.button("Terminado", key=f"done_{equipo_id}"):
                         if st.session_state.editando == equipo_id:
                             st.session_state.editando = None
                         equipo_a_terminar = st.session_state.equipos.pop(equipo_id)
                         st.session_state.terminados[equipo_id] = equipo_a_terminar
                         guardar_datos(st.session_state.equipos, DATABASE_FILE)
                         guardar_datos(st.session_state.terminados, TERMINADOS_FILE)
-                        st.success("🎉 Equipo marcado como terminado y archivado.")
+                        st.success("Equipo marcado como terminado y archivado.")
                         st.rerun()
